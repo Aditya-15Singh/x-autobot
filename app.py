@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 import os
 import random
 import sqlite3
@@ -9,29 +8,15 @@ import tweepy
 import asyncio
 
 # ------------------------
-# Twitter Authentication
+# Twitter Authentication (v2)
 # ------------------------
-# --- ADD THIS BLOCK FOR DEBUGGING ---
-print("--- DEBUGGING KEYS ---")
-key = os.getenv("X_API_KEY", "KEY NOT FOUND")
-secret = os.getenv("X_API_SECRET", "SECRET NOT FOUND")
-token = os.getenv("X_ACCESS_TOKEN", "TOKEN NOT FOUND")
-token_secret = os.getenv("X_ACCESS_SECRET", "TOKEN SECRET NOT FOUND")
-
-print(f"API Key Starts With: {key[:5]}")
-print(f"API Secret Starts With: {secret[:5]}")
-print(f"Access Token Starts With: {token[:5]}")
-print(f"Access Token Secret Starts With: {token_secret[:5]}")
-print("----------------------")
-print(f"Server Time (UTC): {datetime.now(timezone.utc)}")
-# --- END DEBUGGING BLOCK ---
-auth = tweepy.OAuth1UserHandler(
-    os.getenv("X_API_KEY"),
-    os.getenv("X_API_SECRET"),
-    os.getenv("X_ACCESS_TOKEN"),
-    os.getenv("X_ACCESS_SECRET")
+# The Client uses all four keys for v2 authentication
+client = tweepy.Client(
+    consumer_key=os.getenv("X_API_KEY"),
+    consumer_secret=os.getenv("X_API_SECRET"),
+    access_token=os.getenv("X_ACCESS_TOKEN"),
+    access_token_secret=os.getenv("X_ACCESS_SECRET")
 )
-api = tweepy.API(auth)
 
 # ------------------------
 # Database for duplicates
@@ -91,9 +76,10 @@ def save_post(text):
 def post_tweet(text):
     if not already_posted(text):
         try:
-            api.update_status(text)
+            # Use the v2 client.create_tweet method
+            client.create_tweet(text=text)
             save_post(text)
-            print("Tweeted:", text)
+            print("Tweeted (v2):", text)
         except Exception as e:
             print("Error tweeting:", e)
 
@@ -169,6 +155,9 @@ async def health():
 # ------------------------
 @app.on_event("startup")
 async def startup_event():
+    # Remove the debugging prints
+    # You can also remove the datetime import at the top
+    print("Starting automation tasks...")
     asyncio.create_task(cricket_task())
     asyncio.create_task(geopolitics_task())
     asyncio.create_task(news_task())
