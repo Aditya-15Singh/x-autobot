@@ -10,6 +10,19 @@ import asyncio
 # ------------------------
 # Twitter Authentication
 # ------------------------
+# --- ADD THIS BLOCK FOR DEBUGGING ---
+print("--- DEBUGGING KEYS ---")
+key = os.getenv("X_API_KEY", "KEY NOT FOUND")
+secret = os.getenv("X_API_SECRET", "SECRET NOT FOUND")
+token = os.getenv("X_ACCESS_TOKEN", "TOKEN NOT FOUND")
+token_secret = os.getenv("X_ACCESS_SECRET", "TOKEN SECRET NOT FOUND")
+
+print(f"API Key Starts With: {key[:5]}")
+print(f"API Secret Starts With: {secret[:5]}")
+print(f"Access Token Starts With: {token[:5]}")
+print(f"Access Token Secret Starts With: {token_secret[:5]}")
+print("----------------------")
+# --- END DEBUGGING BLOCK ---
 auth = tweepy.OAuth1UserHandler(
     os.getenv("X_API_KEY"),
     os.getenv("X_API_SECRET"),
