@@ -23,7 +23,7 @@ client = tweepy.Client(
 NEWS_RSS_URL = "https://timesofindia.indiatimes.com/rssfeedstopstories.cms"
 
 # ------------------------
-# In-Memory Cache for Recent Tweets (No Database Needed!)
+# In-Memory Cache for Recent Tweets
 # ------------------------
 recent_tweets = set()
 
@@ -35,23 +35,23 @@ CONTROL_TOKEN = os.getenv("CONTROL_TOKEN", "changeme")
 AUTOMATION_ON = True
 
 # ------------------------
-# Hinglish Tone Templates
+# NEW: Longer, Multi-part Templates
 # ------------------------
 TEMPLATES = {
-    "cricket": [
-        "India match jeet gyaaa 🔥🇮🇳",
-        "Pak abhi bhi soch raha hai... kaise haar gaye 😂",
-        "Kya SIX tha yaar! Pure stadium hil gyaaa 💥"
-    ],
-    "geopolitics": [
-        "Bhai scene garam ho gya... India ne clear bol dia 🇮🇳",
-        "Yeh khel ab serious ho chuka hai 🔥",
-        "Abhi abhi update aaya hai... sab alert rahooo 🚨"
-    ],
+    "cricket": {
+        "opening": ["Just in from the match:", "Unbelievable cricket today!", "What a showdown between the teams!"],
+        "detail": ["The batting display has been absolutely electrifying.", "That bowling spell was a masterclass in pressure and skill.", "The fielding has been top-notch, saving crucial runs."],
+        "closing": ["India is on the path to a historic win. 🇮🇳 #Cricket", "This match is going to be a nail-biter until the very end.", "A truly memorable performance by the squad."]
+    },
+    "geopolitics": {
+        "opening": ["Major geopolitical update:", "The international stage is heating up today.", "A significant development on the world stage:"],
+        "detail": ["Diplomatic talks have reached a critical point, with all eyes on the outcome.", "This strategic move is set to have major ripple effects across the region.", "Analysts are closely watching the fallout from this important decision."],
+        "closing": ["India stands firm and clear on its national interest. #Geopolitics", "The coming days will be crucial for international relations.", "A new chapter in global politics is unfolding before our eyes."]
+    },
     "news": [
         "Breaking News: {headline}",
-        "Yeh dekh lo, aaj ka sabse bada update 👉 {headline}",
-        "Headlines Today: {headline}"
+        "Major Update 👉 {headline}",
+        "From the Headlines Today: {headline}"
     ]
 }
 
@@ -59,11 +59,9 @@ TEMPLATES = {
 # Helpers
 # ------------------------
 def already_posted(text):
-    # Check against the in-memory set of recent tweets
     return text in recent_tweets
 
 def save_post(text):
-    # Add the new tweet to our in-memory set
     recent_tweets.add(text)
 
 def get_latest_headline(rss_url):
@@ -94,12 +92,22 @@ async def main_scheduler_task():
             topic = random.choice(["cricket", "geopolitics", "news"])
             print(f"Timer fired. Selected topic: {topic}")
             
-            if topic == "news":
+            msg = ""
+            if topic in ["cricket", "geopolitics"]:
+                # Build a longer tweet from parts
+                opening = random.choice(TEMPLATES[topic]["opening"])
+                detail = random.choice(TEMPLATES[topic]["detail"])
+                closing = random.choice(TEMPLATES[topic]["closing"])
+                msg = f"{opening} {detail} {closing}"
+            
+            elif topic == "news":
                 headline = get_latest_headline(NEWS_RSS_URL)
                 msg = random.choice(TEMPLATES[topic]).format(headline=headline)
-            else:
-                msg = random.choice(TEMPLATES[topic])
             
+            # Ensure tweet is not too long (X's limit is 280)
+            if len(msg) > 280:
+                msg = msg[:277] + "..."
+
             post_tweet(msg)
         
         await asyncio.sleep(7200) # 2 hours
@@ -111,6 +119,7 @@ async def main_scheduler_task():
 async def root():
     return {"status": "ok"}
 
+# ... (the rest of the API routes: manual_tweet, pause, resume, health are the same) ...
 @app.post("/manual/tweet")
 async def manual_tweet(request: Request):
     data = await request.json()
@@ -142,13 +151,11 @@ async def resume(request: Request):
 @app.get("/health")
 async def health():
     return {"status": "running", "automation": AUTOMATION_ON}
-
 # ------------------------
 # Startup
 # ------------------------
 @app.on_event("startup")
 async def startup_event():
-    # Load recent tweets into memory to avoid duplicates on startup
     print("Fetching recent tweets to build memory cache...")
     try:
         me = client.get_me().data
