@@ -1,4 +1,4 @@
 fastapi
 uvicorn
 tweepy
-sqlite3-binary
+
