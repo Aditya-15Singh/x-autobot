@@ -35,23 +35,23 @@ CONTROL_TOKEN = os.getenv("CONTROL_TOKEN", "changeme")
 AUTOMATION_ON = True
 
 # ------------------------
-# NEW: Longer, Multi-part Templates
+# NEW: Improved Hinglish Templates
 # ------------------------
 TEMPLATES = {
     "cricket": {
-        "opening": ["Just in from the match:", "Unbelievable cricket today!", "What a showdown between the teams!"],
-        "detail": ["The batting display has been absolutely electrifying.", "That bowling spell was a masterclass in pressure and skill.", "The fielding has been top-notch, saving crucial runs."],
-        "closing": ["India is on the path to a historic win. 🇮🇳 #Cricket", "This match is going to be a nail-biter until the very end.", "A truly memorable performance by the squad."]
+        "opening": ["Match ka scene garam hai!", "Yaar, kya zabardast cricket dekhne ko mil raha hai!", "Aaj toh game full power on hai!"],
+        "detail": ["Batting line-up form mein lag rahi hai, solid shots maar rahe hain.", "Bowling attack ne toh kamaal kar diya, bilkul pressure bana ke rakha hai.", "Fielding ekdum tight hai, ek-ek run bachana important ho gaya hai."],
+        "closing": ["Team India jeet ke taraf badh rahi hai! 🇮🇳 #CricketFever", "End tak suspense bana rahega, pakka!", "Yeh performance saalon tak yaad rakha jayega, historical stuff!"]
     },
     "geopolitics": {
-        "opening": ["Major geopolitical update:", "The international stage is heating up today.", "A significant development on the world stage:"],
-        "detail": ["Diplomatic talks have reached a critical point, with all eyes on the outcome.", "This strategic move is set to have major ripple effects across the region.", "Analysts are closely watching the fallout from this important decision."],
-        "closing": ["India stands firm and clear on its national interest. #Geopolitics", "The coming days will be crucial for international relations.", "A new chapter in global politics is unfolding before our eyes."]
+        "opening": ["Bhai, international level pe badi khabar aa rahi hai:", "Duniya mein siyasi hulchul tez ho gayi hai, suno.", "Global stage par ek naya mod aaya hai:"],
+        "detail": ["Iss faisle ka asar poore South Asia par padega, sabki nazar ispar hai.", "Deshon ke beech diplomacy ab ek naye level par jaa rahi hai.", "Experts ka kehna hai ki yeh ek strategic masterstroke hai Bharat ki taraf se."],
+        "closing": ["Bharat ka stand bilkul clear aur firm hai. #IndiaFirst", "Aane waale din bahut crucial hone waale hain, alert raho.", "Duniya mein power ka balance badal raha hai, dosto."]
     },
     "news": [
-        "Breaking News: {headline}",
-        "Major Update 👉 {headline}",
-        "From the Headlines Today: {headline}"
+        "Abhi abhi ki Breaking News: {headline}",
+        "Aaj ki sabse badi khabar 👉 {headline}",
+        "Headlines mein aaj: {headline}"
     ]
 }
 
@@ -71,7 +71,7 @@ def get_latest_headline(rss_url):
         return latest_headline
     except Exception as e:
         print(f"Error fetching RSS feed: {e}")
-        return "Top story of the moment"
+        return "desh aur duniya ki khabar"
 
 def post_tweet(text):
     if not already_posted(text):
@@ -94,7 +94,6 @@ async def main_scheduler_task():
             
             msg = ""
             if topic in ["cricket", "geopolitics"]:
-                # Build a longer tweet from parts
                 opening = random.choice(TEMPLATES[topic]["opening"])
                 detail = random.choice(TEMPLATES[topic]["detail"])
                 closing = random.choice(TEMPLATES[topic]["closing"])
@@ -104,7 +103,6 @@ async def main_scheduler_task():
                 headline = get_latest_headline(NEWS_RSS_URL)
                 msg = random.choice(TEMPLATES[topic]).format(headline=headline)
             
-            # Ensure tweet is not too long (X's limit is 280)
             if len(msg) > 280:
                 msg = msg[:277] + "..."
 
@@ -113,13 +111,12 @@ async def main_scheduler_task():
         await asyncio.sleep(7200) # 2 hours
 
 # ------------------------
-# API Routes
+# API Routes (No changes here)
 # ------------------------
 @app.get("/")
 async def root():
     return {"status": "ok"}
 
-# ... (the rest of the API routes: manual_tweet, pause, resume, health are the same) ...
 @app.post("/manual/tweet")
 async def manual_tweet(request: Request):
     data = await request.json()
@@ -151,8 +148,9 @@ async def resume(request: Request):
 @app.get("/health")
 async def health():
     return {"status": "running", "automation": AUTOMATION_ON}
+
 # ------------------------
-# Startup
+# Startup (No changes here)
 # ------------------------
 @app.on_event("startup")
 async def startup_event():
