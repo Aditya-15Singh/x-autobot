@@ -35,23 +35,21 @@ CONTROL_TOKEN = os.getenv("CONTROL_TOKEN", "changeme")
 AUTOMATION_ON = True
 
 # ------------------------
-# NEW: Improved Hinglish Templates
+# FINAL: Templates with Right-Wing Supportive Tone
 # ------------------------
 TEMPLATES = {
     "cricket": {
-        "opening": ["Match ka scene garam hai!", "Yaar, kya zabardast cricket dekhne ko mil raha hai!", "Aaj toh game full power on hai!"],
-        "detail": ["Batting line-up form mein lag rahi hai, solid shots maar rahe hain.", "Bowling attack ne toh kamaal kar diya, bilkul pressure bana ke rakha hai.", "Fielding ekdum tight hai, ek-ek run bachana important ho gaya hai."],
-        "closing": ["Team India jeet ke taraf badh rahi hai! 🇮🇳 #CricketFever", "End tak suspense bana rahega, pakka!", "Yeh performance saalon tak yaad rakha jayega, historical stuff!"]
+        "line1": ["Team India ka jazba hi alag hai!", "Discipline, Strategy, Power - yeh sirf khel nahi, desh ka gaurav hai.", "Rivals can keep trying, but the talent and aggression of our team is unmatched."],
+        "line2": ["Yeh naye Bharat ki team hai, joh darna nahi, darana jaanti hai. 💪🇮🇳", "Our boys are making India proud on the world stage.", "Yeh team rukegi nahi, yeh Naya Bharat hai!"]
     },
     "geopolitics": {
-        "opening": ["Bhai, international level pe badi khabar aa rahi hai:", "Duniya mein siyasi hulchul tez ho gayi hai, suno.", "Global stage par ek naya mod aaya hai:"],
-        "detail": ["Iss faisle ka asar poore South Asia par padega, sabki nazar ispar hai.", "Deshon ke beech diplomacy ab ek naye level par jaa rahi hai.", "Experts ka kehna hai ki yeh ek strategic masterstroke hai Bharat ki taraf se."],
-        "closing": ["Bharat ka stand bilkul clear aur firm hai. #IndiaFirst", "Aane waale din bahut crucial hone waale hain, alert raho.", "Duniya mein power ka balance badal raha hai, dosto."]
+        "line1": ["Duniya dekh rahi hai naye Bharat ka dum.", "Our foreign policy is crystal clear: India First.", "Global narratives are changing, and India is at the center of it."],
+        "line2": ["No compromises on national security and sovereignty. #SashaktBharat", "Joh desh ke हित mein hai, wahi hoga. No apologies.", "We will lead, not follow. The world must recognize India's strength."]
     },
     "news": [
-        "Abhi abhi ki Breaking News: {headline}",
-        "Aaj ki sabse badi khabar 👉 {headline}",
-        "Headlines mein aaj: {headline}"
+        "Breaking News from a nationalist perspective: {headline}",
+        "Yeh khabar desh ke liye important hai 👉 {headline}",
+        "Today's reality check: {headline}"
     ]
 }
 
@@ -66,7 +64,7 @@ def save_post(text):
 
 def get_latest_headline(rss_url):
     try:
-        feed = feedparser.parse(rss_url)
+        feed = feedparser.parse(feedparser.parse(rss_url))
         latest_headline = feed.entries[0].title
         return latest_headline
     except Exception as e:
@@ -94,10 +92,9 @@ async def main_scheduler_task():
             
             msg = ""
             if topic in ["cricket", "geopolitics"]:
-                opening = random.choice(TEMPLATES[topic]["opening"])
-                detail = random.choice(TEMPLATES[topic]["detail"])
-                closing = random.choice(TEMPLATES[topic]["closing"])
-                msg = f"{opening} {detail} {closing}"
+                line1 = random.choice(TEMPLATES[topic]["line1"])
+                line2 = random.choice(TEMPLATES[topic]["line2"])
+                msg = f"{line1} {line2}"
             
             elif topic == "news":
                 headline = get_latest_headline(NEWS_RSS_URL)
@@ -108,10 +105,10 @@ async def main_scheduler_task():
 
             post_tweet(msg)
         
-        await asyncio.sleep(7200) # 2 hours
+        await asyncio.sleep(7200)
 
 # ------------------------
-# API Routes (No changes here)
+# API Routes & Startup (No changes from here down)
 # ------------------------
 @app.get("/")
 async def root():
@@ -149,9 +146,6 @@ async def resume(request: Request):
 async def health():
     return {"status": "running", "automation": AUTOMATION_ON}
 
-# ------------------------
-# Startup (No changes here)
-# ------------------------
 @app.on_event("startup")
 async def startup_event():
     print("Fetching recent tweets to build memory cache...")
