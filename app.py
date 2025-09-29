@@ -64,12 +64,13 @@ def save_post(text):
 
 def get_latest_headline(rss_url):
     try:
-        feed = feedparser.parse(feedparser.parse(rss_url))
+        # CORRECTED THIS LINE - REMOVED THE EXTRA feedparser.parse()
+        feed = feedparser.parse(rss_url)
         latest_headline = feed.entries[0].title
         return latest_headline
     except Exception as e:
         print(f"Error fetching RSS feed: {e}")
-        return "desh aur duniya ki khabar"
+        return "desh aur duniya ki khabar" # Fallback message
 
 def post_tweet(text):
     if not already_posted(text):
