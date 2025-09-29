@@ -98,7 +98,10 @@ async def main_scheduler_task():
 
 # ------------------------
 # API Routes
-# ------------------------
+# ----------------------
+@app.get("/")
+async def root():
+    return {"status": "ok"}
 @app.post("/manual/tweet")
 async def manual_tweet(request: Request):
     data = await request.json()
