@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import os
 import random
 import sqlite3
@@ -22,6 +23,7 @@ print(f"API Secret Starts With: {secret[:5]}")
 print(f"Access Token Starts With: {token[:5]}")
 print(f"Access Token Secret Starts With: {token_secret[:5]}")
 print("----------------------")
+print(f"Server Time (UTC): {datetime.now(timezone.utc)}")
 # --- END DEBUGGING BLOCK ---
 auth = tweepy.OAuth1UserHandler(
     os.getenv("X_API_KEY"),
