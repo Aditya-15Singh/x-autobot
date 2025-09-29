@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 import uvicorn
 import tweepy
 import asyncio
+import feedparser # <-- New library
 
 # ------------------------
 # Twitter Authentication (v2)
@@ -16,6 +17,12 @@ client = tweepy.Client(
     access_token=os.getenv("X_ACCESS_TOKEN"),
     access_token_secret=os.getenv("X_ACCESS_SECRET")
 )
+
+# ------------------------
+# NEW: RSS Feed URL
+# ------------------------
+# You can change this link to any RSS feed you prefer.
+NEWS_RSS_URL = "https://timesofindia.indiatimes.com/rssfeedstopstories.cms"
 
 # ------------------------
 # Database for duplicates
@@ -47,9 +54,9 @@ TEMPLATES = {
         "Abhi abhi update aaya hai... sab alert rahooo 🚨"
     ],
     "news": [
-        "Breaking News aayi hai bhai... {headline}",
+        "Breaking News: {headline}",
         "Yeh dekh lo, aaj ka sabse bada update 👉 {headline}",
-        "Abhi abhi samachar: {headline}"
+        "Headlines Today: {headline}"
     ]
 }
 
@@ -64,6 +71,17 @@ def save_post(text):
     c.execute("INSERT INTO posts VALUES (?, ?)", (text, datetime.now()))
     conn.commit()
 
+# NEW function to get live news
+def get_latest_headline(rss_url):
+    try:
+        feed = feedparser.parse(rss_url)
+        # Get the title of the very first entry (the newest one)
+        latest_headline = feed.entries[0].title
+        return latest_headline
+    except Exception as e:
+        print(f"Error fetching RSS feed: {e}")
+        return "Top story of the moment" # Fallback message if RSS fails
+
 def post_tweet(text):
     if not already_posted(text):
         try:
@@ -74,34 +92,33 @@ def post_tweet(text):
             print("Error tweeting:", e)
 
 # ------------------------
-# NEW SLOWER TASK
+# Main Scheduler Task
 # ------------------------
 async def main_scheduler_task():
     print("Starting main scheduler... will post one tweet every 2 hours.")
     while True:
         if AUTOMATION_ON:
-            # Choose a random topic
             topic = random.choice(["cricket", "geopolitics", "news"])
-            
             print(f"Timer fired. Selected topic: {topic}")
             
             if topic == "news":
-                headline = "Top story of the hour" # placeholder
+                # Get a LIVE headline instead of a placeholder
+                headline = get_latest_headline(NEWS_RSS_URL)
                 msg = random.choice(TEMPLATES[topic]).format(headline=headline)
             else:
                 msg = random.choice(TEMPLATES[topic])
             
             post_tweet(msg)
         
-        # Wait for 2 hours (7200 seconds) before the next post
         await asyncio.sleep(7200)
 
 # ------------------------
 # API Routes
-# ----------------------
+# ------------------------
 @app.get("/")
 async def root():
     return {"status": "ok"}
+
 @app.post("/manual/tweet")
 async def manual_tweet(request: Request):
     data = await request.json()
