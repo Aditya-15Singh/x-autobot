@@ -35,22 +35,23 @@ CONTROL_TOKEN = os.getenv("CONTROL_TOKEN", "changeme")
 AUTOMATION_ON = True
 
 # ------------------------
-# FINAL: Templates with Right-Wing Supportive Tone
+# FINAL: Templates with Hinglish Tone & Hashtags
 # ------------------------
 TEMPLATES = {
     "cricket": {
         "line1": ["Team India ka jazba hi alag hai!", "Discipline, Strategy, Power - yeh sirf khel nahi, desh ka gaurav hai.", "Rivals can keep trying, but the talent and aggression of our team is unmatched."],
-        "line2": ["Yeh naye Bharat ki team hai, joh darna nahi, darana jaanti hai. 💪🇮🇳", "Our boys are making India proud on the world stage.", "Yeh team rukegi nahi, yeh Naya Bharat hai!"]
+        "line2": ["Yeh naye Bharat ki team hai, joh darna nahi, darana jaanti hai. 💪🇮🇳", "Our boys are making India proud on the world stage.", "Yeh team rukegi nahi, yeh Naya Bharat hai!"],
+        "hashtags": ["#TeamIndia", "#CricketFever", "#IndianCricket", "#NayaBharat"]
     },
     "geopolitics": {
         "line1": ["Duniya dekh rahi hai naye Bharat ka dum.", "Our foreign policy is crystal clear: India First.", "Global narratives are changing, and India is at the center of it."],
-        "line2": ["No compromises on national security and sovereignty. #SashaktBharat", "Joh desh ke हित mein hai, wahi hoga. No apologies.", "We will lead, not follow. The world must recognize India's strength."]
+        "line2": ["No compromises on national security and sovereignty.", "Joh desh ke हित mein hai, wahi hoga. No apologies.", "We will lead, not follow. The world must recognize India's strength."],
+        "hashtags": ["#IndiaFirst", "#NationalSecurity", "#SashaktBharat", "#IndianDiplomacy"]
     },
-    "news": [
-        "Breaking News from a nationalist perspective: {headline}",
-        "Yeh khabar desh ke liye important hai 👉 {headline}",
-        "Today's reality check: {headline}"
-    ]
+    "news": {
+        "templates": ["Desh se badi khabar: {headline}", "Aaj ka sach: {headline}", "Satta ka khel: {headline}"],
+        "hashtags": ["#IndiaNews", "#BreakingNews", "#Nationalist"]
+    }
 }
 
 # ------------------------
@@ -64,13 +65,12 @@ def save_post(text):
 
 def get_latest_headline(rss_url):
     try:
-        # CORRECTED THIS LINE - REMOVED THE EXTRA feedparser.parse()
         feed = feedparser.parse(rss_url)
         latest_headline = feed.entries[0].title
         return latest_headline
     except Exception as e:
         print(f"Error fetching RSS feed: {e}")
-        return "desh aur duniya ki khabar" # Fallback message
+        return "desh aur duniya ki khabar"
 
 def post_tweet(text):
     if not already_posted(text):
@@ -99,8 +99,19 @@ async def main_scheduler_task():
             
             elif topic == "news":
                 headline = get_latest_headline(NEWS_RSS_URL)
-                msg = random.choice(TEMPLATES[topic]).format(headline=headline)
+                msg = random.choice(TEMPLATES[topic]["templates"]).format(headline=headline)
             
+            # Add 1 or 2 hashtags
+            if topic in TEMPLATES and "hashtags" in TEMPLATES[topic]:
+                num_hashtags = random.randint(1, 2)
+                chosen_hashtags = random.sample(TEMPLATES[topic]["hashtags"], num_hashtags)
+                hashtag_string = " ".join(chosen_hashtags)
+                
+                # Check length and append
+                if len(msg) + len(hashtag_string) + 1 <= 280:
+                    msg = f"{msg} {hashtag_string}"
+
+            # Final length check
             if len(msg) > 280:
                 msg = msg[:277] + "..."
 
