@@ -1,12 +1,11 @@
 import os
 import random
-import sqlite3
 from datetime import datetime
 from fastapi import FastAPI, Request
 import uvicorn
 import tweepy
 import asyncio
-import feedparser # <-- New library
+import feedparser
 
 # ------------------------
 # Twitter Authentication (v2)
@@ -19,18 +18,14 @@ client = tweepy.Client(
 )
 
 # ------------------------
-# NEW: RSS Feed URL
+# RSS Feed URL
 # ------------------------
-# You can change this link to any RSS feed you prefer.
 NEWS_RSS_URL = "https://timesofindia.indiatimes.com/rssfeedstopstories.cms"
 
 # ------------------------
-# Database for duplicates
+# In-Memory Cache for Recent Tweets (No Database Needed!)
 # ------------------------
-conn = sqlite3.connect("tweets.db")
-c = conn.cursor()
-c.execute("CREATE TABLE IF NOT EXISTS posts (text TEXT, created TIMESTAMP)")
-conn.commit()
+recent_tweets = set()
 
 # ------------------------
 # FastAPI app
@@ -64,23 +59,21 @@ TEMPLATES = {
 # Helpers
 # ------------------------
 def already_posted(text):
-    c.execute("SELECT * FROM posts WHERE text = ?", (text,))
-    return c.fetchone() is not None
+    # Check against the in-memory set of recent tweets
+    return text in recent_tweets
 
 def save_post(text):
-    c.execute("INSERT INTO posts VALUES (?, ?)", (text, datetime.now()))
-    conn.commit()
+    # Add the new tweet to our in-memory set
+    recent_tweets.add(text)
 
-# NEW function to get live news
 def get_latest_headline(rss_url):
     try:
         feed = feedparser.parse(rss_url)
-        # Get the title of the very first entry (the newest one)
         latest_headline = feed.entries[0].title
         return latest_headline
     except Exception as e:
         print(f"Error fetching RSS feed: {e}")
-        return "Top story of the moment" # Fallback message if RSS fails
+        return "Top story of the moment"
 
 def post_tweet(text):
     if not already_posted(text):
@@ -102,7 +95,6 @@ async def main_scheduler_task():
             print(f"Timer fired. Selected topic: {topic}")
             
             if topic == "news":
-                # Get a LIVE headline instead of a placeholder
                 headline = get_latest_headline(NEWS_RSS_URL)
                 msg = random.choice(TEMPLATES[topic]).format(headline=headline)
             else:
@@ -110,7 +102,7 @@ async def main_scheduler_task():
             
             post_tweet(msg)
         
-        await asyncio.sleep(7200)
+        await asyncio.sleep(7200) # 2 hours
 
 # ------------------------
 # API Routes
@@ -156,6 +148,18 @@ async def health():
 # ------------------------
 @app.on_event("startup")
 async def startup_event():
+    # Load recent tweets into memory to avoid duplicates on startup
+    print("Fetching recent tweets to build memory cache...")
+    try:
+        me = client.get_me().data
+        my_tweets = client.get_users_tweets(me.id, max_results=20).data
+        if my_tweets:
+            for tweet in my_tweets:
+                recent_tweets.add(tweet.text)
+        print(f"Memory cache built. Found {len(recent_tweets)} recent tweets.")
+    except Exception as e:
+        print(f"Could not fetch recent tweets: {e}")
+
     asyncio.create_task(main_scheduler_task())
 
 if __name__ == "__main__":
