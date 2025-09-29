@@ -10,7 +10,6 @@ import asyncio
 # ------------------------
 # Twitter Authentication (v2)
 # ------------------------
-# The Client uses all four keys for v2 authentication
 client = tweepy.Client(
     consumer_key=os.getenv("X_API_KEY"),
     consumer_secret=os.getenv("X_API_SECRET"),
@@ -30,11 +29,7 @@ conn.commit()
 # FastAPI app
 # ------------------------
 app = FastAPI()
-
-# Control token
 CONTROL_TOKEN = os.getenv("CONTROL_TOKEN", "changeme")
-
-# Automation status
 AUTOMATION_ON = True
 
 # ------------------------
@@ -55,10 +50,6 @@ TEMPLATES = {
         "Breaking News aayi hai bhai... {headline}",
         "Yeh dekh lo, aaj ka sabse bada update 👉 {headline}",
         "Abhi abhi samachar: {headline}"
-    ],
-    "thread": [
-        "Thread 🧵: Aaj right wing ka mood kaisa hai 👇",
-        "Chalo shuru karte hai aaj ka political roundup 🗞️🧵"
     ]
 }
 
@@ -76,7 +67,6 @@ def save_post(text):
 def post_tweet(text):
     if not already_posted(text):
         try:
-            # Use the v2 client.create_tweet method
             client.create_tweet(text=text)
             save_post(text)
             print("Tweeted (v2):", text)
@@ -84,36 +74,27 @@ def post_tweet(text):
             print("Error tweeting:", e)
 
 # ------------------------
-# Tasks
+# NEW SLOWER TASK
 # ------------------------
-async def cricket_task():
+async def main_scheduler_task():
+    print("Starting main scheduler... will post one tweet every 2 hours.")
     while True:
         if AUTOMATION_ON:
-            msg = random.choice(TEMPLATES["cricket"])
+            # Choose a random topic
+            topic = random.choice(["cricket", "geopolitics", "news"])
+            
+            print(f"Timer fired. Selected topic: {topic}")
+            
+            if topic == "news":
+                headline = "Top story of the hour" # placeholder
+                msg = random.choice(TEMPLATES[topic]).format(headline=headline)
+            else:
+                msg = random.choice(TEMPLATES[topic])
+            
             post_tweet(msg)
-        await asyncio.sleep(900)  # every 15 min
-
-async def geopolitics_task():
-    while True:
-        if AUTOMATION_ON:
-            msg = random.choice(TEMPLATES["geopolitics"])
-            post_tweet(msg)
-        await asyncio.sleep(2700)  # every 45 min
-
-async def news_task():
-    while True:
-        if AUTOMATION_ON:
-            headline = "Example headline"  # placeholder, connect RSS later
-            msg = random.choice(TEMPLATES["news"]).format(headline=headline)
-            post_tweet(msg)
-        await asyncio.sleep(1800)  # every 30 min
-
-async def thread_task():
-    while True:
-        if AUTOMATION_ON:
-            msg = random.choice(TEMPLATES["thread"])
-            post_tweet(msg)
-        await asyncio.sleep(43200)  # every 12 hrs
+        
+        # Wait for 2 hours (7200 seconds) before the next post
+        await asyncio.sleep(7200)
 
 # ------------------------
 # API Routes
@@ -155,13 +136,7 @@ async def health():
 # ------------------------
 @app.on_event("startup")
 async def startup_event():
-    # Remove the debugging prints
-    # You can also remove the datetime import at the top
-    print("Starting automation tasks...")
-    asyncio.create_task(cricket_task())
-    asyncio.create_task(geopolitics_task())
-    asyncio.create_task(news_task())
-    asyncio.create_task(thread_task())
+    asyncio.create_task(main_scheduler_task())
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
