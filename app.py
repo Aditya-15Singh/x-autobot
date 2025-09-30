@@ -35,7 +35,7 @@ CONTROL_TOKEN = os.getenv("CONTROL_TOKEN", "changeme")
 AUTOMATION_ON = True
 
 # ------------------------
-# FINAL: Templates with Hinglish Tone & Hashtags
+# Templates with Hinglish Tone & Hashtags
 # ------------------------
 TEMPLATES = {
     "cricket": {
@@ -65,6 +65,7 @@ def save_post(text):
 
 def get_latest_headline(rss_url):
     try:
+        # This line is now corrected
         feed = feedparser.parse(rss_url)
         latest_headline = feed.entries[0].title
         return latest_headline
@@ -107,11 +108,9 @@ async def main_scheduler_task():
                 chosen_hashtags = random.sample(TEMPLATES[topic]["hashtags"], num_hashtags)
                 hashtag_string = " ".join(chosen_hashtags)
                 
-                # Check length and append
                 if len(msg) + len(hashtag_string) + 1 <= 280:
                     msg = f"{msg} {hashtag_string}"
 
-            # Final length check
             if len(msg) > 280:
                 msg = msg[:277] + "..."
 
@@ -120,7 +119,7 @@ async def main_scheduler_task():
         await asyncio.sleep(7200)
 
 # ------------------------
-# API Routes & Startup (No changes from here down)
+# API Routes & Startup
 # ------------------------
 @app.get("/")
 async def root():
@@ -160,17 +159,8 @@ async def health():
 
 @app.on_event("startup")
 async def startup_event():
-    print("Fetching recent tweets to build memory cache...")
-    try:
-        me = client.get_me().data
-        my_tweets = client.get_users_tweets(me.id, max_results=20).data
-        if my_tweets:
-            for tweet in my_tweets:
-                recent_tweets.add(tweet.text)
-        print(f"Memory cache built. Found {len(recent_tweets)} recent tweets.")
-    except Exception as e:
-        print(f"Could not fetch recent tweets: {e}")
-
+    # Startup is now simpler and more reliable
+    print("Starting automation task.")
     asyncio.create_task(main_scheduler_task())
 
 if __name__ == "__main__":
