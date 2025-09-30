@@ -1,10 +1,8 @@
 import os
 import random
-from datetime import datetime
 from fastapi import FastAPI, Request
 import uvicorn
 import tweepy
-import asyncio
 import feedparser
 
 # ------------------------
@@ -23,19 +21,13 @@ client = tweepy.Client(
 NEWS_RSS_URL = "https://timesofindia.indiatimes.com/rssfeedstopstories.cms"
 
 # ------------------------
-# In-Memory Cache for Recent Tweets
-# ------------------------
-recent_tweets = set()
-
-# ------------------------
 # FastAPI app
 # ------------------------
 app = FastAPI()
 CONTROL_TOKEN = os.getenv("CONTROL_TOKEN", "changeme")
-AUTOMATION_ON = True
 
 # ------------------------
-# Templates with Hinglish Tone & Hashtags
+# Templates
 # ------------------------
 TEMPLATES = {
     "cricket": {
@@ -55,113 +47,53 @@ TEMPLATES = {
 }
 
 # ------------------------
-# Helpers
+# Helper Functions
 # ------------------------
-def already_posted(text):
-    return text in recent_tweets
-
-def save_post(text):
-    recent_tweets.add(text)
-
 def get_latest_headline(rss_url):
     try:
-        # This line is now corrected
         feed = feedparser.parse(rss_url)
-        latest_headline = feed.entries[0].title
-        return latest_headline
-    except Exception as e:
-        print(f"Error fetching RSS feed: {e}")
+        return feed.entries[0].title
+    except Exception:
         return "desh aur duniya ki khabar"
 
-def post_tweet(text):
-    if not already_posted(text):
-        try:
-            client.create_tweet(text=text)
-            save_post(text)
-            print("Tweeted (v2):", text)
-        except Exception as e:
-            print("Error tweeting:", e)
+def post_random_tweet():
+    topic = random.choice(["cricket", "geopolitics", "news"])
+    print(f"Triggered to post about: {topic}")
+    
+    msg = ""
+    if topic in ["cricket", "geopolitics"]:
+        line1 = random.choice(TEMPLATES[topic]["line1"])
+        line2 = random.choice(TEMPLATES[topic]["line2"])
+        msg = f"{line1} {line2}"
+    elif topic == "news":
+        headline = get_latest_headline(NEWS_RSS_URL)
+        msg = random.choice(TEMPLATES[topic]["templates"]).format(headline=headline)
+    
+    if topic in TEMPLATES and "hashtags" in TEMPLATES[topic]:
+        num_hashtags = random.randint(1, 2)
+        chosen_hashtags = random.sample(TEMPLATES[topic]["hashtags"], num_hashtags)
+        hashtag_string = " ".join(chosen_hashtags)
+        if len(msg) + len(hashtag_string) + 1 <= 280:
+            msg = f"{msg} {hashtag_string}"
+
+    try:
+        client.create_tweet(text=msg)
+        print("Tweeted (v2):", msg)
+        return {"status": "success", "tweet": msg}
+    except Exception as e:
+        print("Error tweeting:", e)
+        return {"status": "error", "message": str(e)}
 
 # ------------------------
-# Main Scheduler Task
-# ------------------------
-async def main_scheduler_task():
-    print("Starting main scheduler... will post one tweet every 2 hours.")
-    while True:
-        if AUTOMATION_ON:
-            topic = random.choice(["cricket", "geopolitics", "news"])
-            print(f"Timer fired. Selected topic: {topic}")
-            
-            msg = ""
-            if topic in ["cricket", "geopolitics"]:
-                line1 = random.choice(TEMPLATES[topic]["line1"])
-                line2 = random.choice(TEMPLATES[topic]["line2"])
-                msg = f"{line1} {line2}"
-            
-            elif topic == "news":
-                headline = get_latest_headline(NEWS_RSS_URL)
-                msg = random.choice(TEMPLATES[topic]["templates"]).format(headline=headline)
-            
-            # Add 1 or 2 hashtags
-            if topic in TEMPLATES and "hashtags" in TEMPLATES[topic]:
-                num_hashtags = random.randint(1, 2)
-                chosen_hashtags = random.sample(TEMPLATES[topic]["hashtags"], num_hashtags)
-                hashtag_string = " ".join(chosen_hashtags)
-                
-                if len(msg) + len(hashtag_string) + 1 <= 280:
-                    msg = f"{msg} {hashtag_string}"
-
-            if len(msg) > 280:
-                msg = msg[:277] + "..."
-
-            post_tweet(msg)
-        
-        await asyncio.sleep(7200)
-
-# ------------------------
-# API Routes & Startup
+# API Routes
 # ------------------------
 @app.get("/")
-async def root():
-    return {"status": "ok"}
+def root():
+    return {"status": "Bot is waiting for a trigger."}
 
-@app.post("/manual/tweet")
-async def manual_tweet(request: Request):
-    data = await request.json()
-    token = request.query_params.get("token")
+@app.get("/trigger_tweet")
+def trigger_tweet(token: str):
     if token != CONTROL_TOKEN:
-        return {"error": "Unauthorized"}
-    text = data.get("text", "")
-    post_tweet(text)
-    return {"status": "ok", "text": text}
-
-@app.post("/pause")
-async def pause(request: Request):
-    global AUTOMATION_ON
-    token = request.query_params.get("token")
-    if token != CONTROL_TOKEN:
-        return {"error": "Unauthorized"}
-    AUTOMATION_ON = False
-    return {"status": "paused"}
-
-@app.post("/resume")
-async def resume(request: Request):
-    global AUTOMATION_ON
-    token = request.query_params.get("token")
-    if token != CONTROL_TOKEN:
-        return {"error": "Unauthorized"}
-    AUTOMATION_ON = True
-    return {"status": "resumed"}
-
-@app.get("/health")
-async def health():
-    return {"status": "running", "automation": AUTOMATION_ON}
-
-@app.on_event("startup")
-async def startup_event():
-    # Startup is now simpler and more reliable
-    print("Starting automation task.")
-    asyncio.create_task(main_scheduler_task())
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+        return {"error": "Invalid token"}
+    result = post_random_tweet()
+    return result
