@@ -47,24 +47,34 @@ def get_article_snippet(url):
 
 
 def get_clean_headline():
-    """Get a headline + real article snippet from ANI RSS feed."""
+    """Fetch a real ANI headline + snippet with better reliability."""
     try:
+        headers = {"User-Agent": "Mozilla/5.0 (X-Autobot)"}
         feed = feedparser.parse(ANI_RSS_URL)
         if not feed.entries:
-            return "Bharat aur duniya se kuch nayi baatein aa rahi hain"
+            # Fallback to direct HTML scrape if feed empty
+            r = requests.get("https://www.aninews.in/", headers=headers, timeout=10)
+            soup = BeautifulSoup(r.text, "html.parser")
+            h2 = soup.find("h2")
+            if h2:
+                headline = h2.get_text().strip()
+                return headline
+            return "No new updates — feed empty."
 
-        # choose a random one among the newest few
-        entry = random.choice(feed.entries[:8])
+        # Pick from top 5
+        entry = random.choice(feed.entries[:5])
         raw = entry.title.strip()
         snippet = get_article_snippet(entry.link)
 
-        # clean headline
+        # Clean and merge
         clean = re.sub(r"http\S+|www\S+|#\S+|@\S+|ANI|–|—", "", raw)
         headline = f"{clean} — {snippet}" if snippet else clean
-        return headline or "Bharat aur duniya se kuch nayi baatein aa rahi hain"
+
+        return headline or "News unavailable."
     except Exception as e:
         print("Feed error:", e)
-        return "Bharat aur duniya se kuch nayi baatein aa rahi hain"
+        return "Feed access failed — checking again later."
+
 
 # --- headline fetch and cleanup ------------------------------------------------
 
