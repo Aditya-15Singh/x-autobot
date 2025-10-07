@@ -20,32 +20,54 @@ def get_tweepy_client():
         return None
 
 
-# --- headline fetch and cleanup ------------------------------------------------
+import requests
+from bs4 import BeautifulSoup
 import datetime
 import random
+import re
+
+def get_article_snippet(url):
+    """Try to pull the first meaningful paragraph from the ANI article."""
+    try:
+        r = requests.get(url, timeout=6)
+        if r.status_code != 200:
+            return ""
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        # Find a paragraph with real content, skip ads or 'Also Read' lines
+        for p in soup.find_all("p"):
+            text = p.get_text().strip()
+            if len(text) > 60 and not text.lower().startswith(("also read", "follow", "read:")):
+                text = re.sub(r"\s+", " ", text)
+                return text[:160] + "…" if len(text) > 160 else text
+        return ""
+    except Exception as e:
+        print("Snippet fetch error:", e)
+        return ""
+
 
 def get_clean_headline():
+    """Get a headline + real article snippet from ANI RSS feed."""
     try:
         feed = feedparser.parse(ANI_RSS_URL)
         if not feed.entries:
-            return "Bharat aur duniya se ek nayi khabar aayi hai"
+            return "Bharat aur duniya se kuch nayi baatein aa rahi hain"
 
-        # find the first non-empty title
-        valid_titles = [e.title for e in feed.entries if e.title and e.title.strip()]
-        if not valid_titles:
-            return "Bharat aur duniya se ek nayi khabar aayi hai"
+        # choose a random one among the newest few
+        entry = random.choice(feed.entries[:8])
+        raw = entry.title.strip()
+        snippet = get_article_snippet(entry.link)
 
-        raw = random.choice(valid_titles[:10])  # choose randomly from the first 10
-        clean = re.sub(r"http\S+|www\S+|#\S+|@\S+|ANI|–|—", "", raw).strip()
-
-        # if still empty, give a neutral backup
-        if not clean:
-            clean = "Bharat aur duniya se ek nayi khabar aayi hai"
-        return clean
-
+        # clean headline
+        clean = re.sub(r"http\S+|www\S+|#\S+|@\S+|ANI|–|—", "", raw)
+        headline = f"{clean} — {snippet}" if snippet else clean
+        return headline or "Bharat aur duniya se kuch nayi baatein aa rahi hain"
     except Exception as e:
         print("Feed error:", e)
-        return "Bharat aur duniya se ek nayi khabar aayi hai"
+        return "Bharat aur duniya se kuch nayi baatein aa rahi hain"
+
+# --- headline fetch and cleanup ------------------------------------------------
+
 
 
 # --- reaction bank -------------------------------------------------------------
