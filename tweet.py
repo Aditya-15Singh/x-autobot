@@ -102,16 +102,41 @@ def choose_reaction(headline: str) -> str:
     # --- Default fallback ---
     return random.choice(REACTIONS["generic"])
 
+HASHTAGS = {
+    "cricket": ["#TeamIndia", "#Cricket", "#RohitSharma", "#ViratKohli"],
+    "pakistan": ["#IndiaFirst", "#NationalSecurity"],
+    "rahul": ["#Politics", "#Bharat"],
+    "supreme": ["#Judiciary", "#IndiaNews"],
+    "media": ["#FakeNarrative", "#IndianMedia"],
+    "generic": ["#India", "#Bharat"]
+}
 
 
 # --- build tweet ---------------------------------------------------------------
 def build_tweet():
     headline = get_clean_headline()
     reaction = choose_reaction(headline)
-    tweet = f"{headline} — {reaction}"
+
+
+    key = "generic"
+    lower = headline.lower()
+    if any(w in lower for w in ["cricket", "bcci", "rohit", "kohli", "world cup", "odi", "t20"]):
+        key = "cricket"
+    elif "pakistan" in lower:
+        key = "pakistan"
+    elif "rahul" in lower or "gandhi" in lower:
+        key = "rahul"
+    elif "supreme court" in lower:
+        key = "supreme"
+    elif "media" in lower or "bbc" in lower:
+        key = "media"
+
+    tags = " ".join(random.sample(HASHTAGS[key], k=min(2, len(HASHTAGS[key]))))
+    tweet = f"{headline} — {reaction} {tags}"
     if len(tweet) > 280:
         tweet = tweet[:277] + "..."
     return tweet
+
 
 
 # --- post tweet ----------------------------------------------------------------
