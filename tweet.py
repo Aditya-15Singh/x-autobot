@@ -1,6 +1,8 @@
 # tweet.py  –  ANI-based headline + aggressive reaction generator
 import os, re, random, sys
 import feedparser, tweepy
+import datetime
+import random
 
 ANI_RSS_URL = "https://aniportalimages.blob.core.windows.net/mediafeed/news-feed.xml"
 
@@ -18,18 +20,28 @@ def get_tweepy_client():
 
 
 # --- headline fetch and cleanup ------------------------------------------------
+import datetime
+import random
+
 def get_clean_headline():
     try:
         feed = feedparser.parse(ANI_RSS_URL)
         if not feed.entries:
-            return "No new headline"
-        raw = feed.entries[0].title
+            return f"No fresh update {datetime.datetime.now():%H:%M}"
+
+        # pick a random or next headline to avoid duplicates
+        entry = random.choice(feed.entries[:5])  # first 5 are usually latest
+        raw = entry.title
         clean = re.sub(r"http\S+|www\S+|#\S+|@\S+|ANI|–|—", "", raw).strip()
+
+        # safety: fallback if parsing fails
+        if not clean:
+            clean = f"Update unavailable {datetime.datetime.now():%H:%M}"
         return clean
+
     except Exception as e:
         print("Feed error:", e)
-        return "Headline unavailable"
-
+        return f"Update unavailable {datetime.datetime.now():%H:%M}"
 
 # --- reaction bank -------------------------------------------------------------
 REACTIONS = {
