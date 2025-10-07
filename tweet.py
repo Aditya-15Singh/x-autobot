@@ -4,6 +4,7 @@ import feedparser, tweepy
 import datetime
 import random
 
+
 ANI_RSS_URL = "https://aniportalimages.blob.core.windows.net/mediafeed/news-feed.xml"
 
 def get_tweepy_client():
@@ -27,21 +28,25 @@ def get_clean_headline():
     try:
         feed = feedparser.parse(ANI_RSS_URL)
         if not feed.entries:
-            return f"No fresh update {datetime.datetime.now():%H:%M}"
+            return "Bharat aur duniya se ek nayi khabar aayi hai"
 
-        # pick a random or next headline to avoid duplicates
-        entry = random.choice(feed.entries[:5])  # first 5 are usually latest
-        raw = entry.title
+        # find the first non-empty title
+        valid_titles = [e.title for e in feed.entries if e.title and e.title.strip()]
+        if not valid_titles:
+            return "Bharat aur duniya se ek nayi khabar aayi hai"
+
+        raw = random.choice(valid_titles[:10])  # choose randomly from the first 10
         clean = re.sub(r"http\S+|www\S+|#\S+|@\S+|ANI|–|—", "", raw).strip()
 
-        # safety: fallback if parsing fails
+        # if still empty, give a neutral backup
         if not clean:
-            clean = f"Update unavailable {datetime.datetime.now():%H:%M}"
+            clean = "Bharat aur duniya se ek nayi khabar aayi hai"
         return clean
 
     except Exception as e:
         print("Feed error:", e)
-        return f"Update unavailable {datetime.datetime.now():%H:%M}"
+        return "Bharat aur duniya se ek nayi khabar aayi hai"
+
 
 # --- reaction bank -------------------------------------------------------------
 REACTIONS = {
