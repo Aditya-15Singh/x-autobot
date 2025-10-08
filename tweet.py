@@ -47,33 +47,45 @@ def get_article_snippet(url):
 
 
 def get_clean_headline():
-    """Fetch news via NewsData.io API (bypass blocked RSS)."""
+    """Fetch Indian political, cricket, or movie headlines via NewsData API."""
     try:
         api_key = os.getenv("NEWSDATA_KEY")
         if not api_key:
             return "Missing NewsData API key"
 
-        url = f"https://newsdata.io/api/1/news?apikey={api_key}&country=in&language=en"
+        # Focus on Indian, political, sports, and entertainment categories
+        url = (
+            f"https://newsdata.io/api/1/news?"
+            f"apikey={api_key}"
+            f"&country=in"
+            f"&language=en"
+            f"&category=top,politics,sports,entertainment"
+        )
+
         r = requests.get(url, timeout=10)
         data = r.json()
 
         if not data.get("results"):
-            return "No latest news available"
+            return "No latest Indian news available"
 
-        # Choose a random story
-        article = random.choice(data["results"][:6])
+        # Choose from the first few fresh headlines
+        article = random.choice(data["results"][:8])
         title = article.get("title", "").strip()
         desc = article.get("description", "").strip()
+        source = article.get("source_id", "NewsData")
 
         clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", title)
         snippet = desc[:140] + "…" if len(desc) > 140 else desc
 
-        headline = f"{clean_title} — {snippet}"
-        return headline or "News unavailable"
+        # Build readable headline with source attribution
+        headline = f"{clean_title} — {snippet} (via {source.title()})"
+
+        return headline or "India se kuch nayi baatein aayi hain"
 
     except Exception as e:
         print("API error:", e)
-        return "API fetch failed"
+        return "News fetch failed"
+
 
 
 
