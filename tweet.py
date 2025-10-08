@@ -46,37 +46,47 @@ def get_article_snippet(url):
         return ""
 
 def get_clean_headline():
-    """Fetch a real ANI headline + snippet (no more feed empty issues)."""
+    """Try ANI → if blocked, fallback to NDTV or TimesNow."""
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (compatible; X-AutoBot/1.0; +https://github.com/Aditya-15Singh/x-autobot)"
+            "User-Agent": "Mozilla/5.0 (compatible; X-AutoBot/1.0)"
         }
 
-        # 1️⃣ Fetch the raw feed manually
-        resp = requests.get(ANI_RSS_URL, headers=headers, timeout=12)
-        if resp.status_code != 200 or "<item>" not in resp.text:
-            print("RSS fetch failed, trying HTML scrape")
-            return scrape_ani_homepage()
+        # 🔹 Try ANI
+        resp = requests.get(ANI_RSS_URL, headers=headers, timeout=10)
+        if resp.status_code == 200 and "<item>" in resp.text:
+            feed = feedparser.parse(resp.text)
+            if feed.entries:
+                entry = random.choice(feed.entries[:6])
+                clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+|ANI|–|—", "", entry.title).strip()
+                snippet = get_article_snippet(entry.link)
+                return f"{clean_title} — {snippet}" if snippet else clean_title
 
-        # 2️⃣ Parse XML safely
-        feed = feedparser.parse(resp.text)
-        if not feed.entries:
-            print("FeedParser gave no entries, using HTML fallback")
-            return scrape_ani_homepage()
+        # 🔹 Try NDTV fallback
+        ndtv_url = "https://feeds.feedburner.com/ndtvnews-top-stories"
+        feed = feedparser.parse(ndtv_url)
+        if feed.entries:
+            entry = random.choice(feed.entries[:6])
+            clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", entry.title).strip()
+            snippet = get_article_snippet(entry.link)
+            return f"{clean_title} — {snippet}" if snippet else clean_title
 
-        # 3️⃣ Pick one fresh item
-        entry = random.choice(feed.entries[:6])
-        raw_title = entry.title.strip()
-        snippet = get_article_snippet(entry.link)
+        # 🔹 Try TimesNow fallback
+        tn_url = "https://www.timesnownews.com/rssfeedstopstories.cms"
+        feed = feedparser.parse(tn_url)
+        if feed.entries:
+            entry = random.choice(feed.entries[:6])
+            clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", entry.title).strip()
+            snippet = get_article_snippet(entry.link)
+            return f"{clean_title} — {snippet}" if snippet else clean_title
 
-        clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+|ANI|–|—", "", raw_title)
-        headline = f"{clean_title} — {snippet}" if snippet else clean_title
-
-        return headline or scrape_ani_homepage()
+        # 🔹 If all fail
+        return "Unable to fetch any current news."
 
     except Exception as e:
         print("Feed error:", e)
-        return scrape_ani_homepage()
+        return "News fetch failed."
+
 
 
 def scrape_ani_homepage():
