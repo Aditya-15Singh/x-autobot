@@ -45,47 +45,35 @@ def get_article_snippet(url):
         print("Snippet fetch error:", e)
         return ""
 
+
 def get_clean_headline():
-    """Try ANI → if blocked, fallback to NDTV or TimesNow."""
+    """Fetch news via NewsData.io API (bypass blocked RSS)."""
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (compatible; X-AutoBot/1.0)"
-        }
+        api_key = os.getenv("NEWSDATA_KEY")
+        if not api_key:
+            return "Missing NewsData API key"
 
-        # 🔹 Try ANI
-        resp = requests.get(ANI_RSS_URL, headers=headers, timeout=10)
-        if resp.status_code == 200 and "<item>" in resp.text:
-            feed = feedparser.parse(resp.text)
-            if feed.entries:
-                entry = random.choice(feed.entries[:6])
-                clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+|ANI|–|—", "", entry.title).strip()
-                snippet = get_article_snippet(entry.link)
-                return f"{clean_title} — {snippet}" if snippet else clean_title
+        url = f"https://newsdata.io/api/1/news?apikey={api_key}&country=in&language=en"
+        r = requests.get(url, timeout=10)
+        data = r.json()
 
-        # 🔹 Try NDTV fallback
-        ndtv_url = "https://feeds.feedburner.com/ndtvnews-top-stories"
-        feed = feedparser.parse(ndtv_url)
-        if feed.entries:
-            entry = random.choice(feed.entries[:6])
-            clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", entry.title).strip()
-            snippet = get_article_snippet(entry.link)
-            return f"{clean_title} — {snippet}" if snippet else clean_title
+        if not data.get("results"):
+            return "No latest news available"
 
-        # 🔹 Try TimesNow fallback
-        tn_url = "https://www.timesnownews.com/rssfeedstopstories.cms"
-        feed = feedparser.parse(tn_url)
-        if feed.entries:
-            entry = random.choice(feed.entries[:6])
-            clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", entry.title).strip()
-            snippet = get_article_snippet(entry.link)
-            return f"{clean_title} — {snippet}" if snippet else clean_title
+        # Choose a random story
+        article = random.choice(data["results"][:6])
+        title = article.get("title", "").strip()
+        desc = article.get("description", "").strip()
 
-        # 🔹 If all fail
-        return "Unable to fetch any current news."
+        clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", title)
+        snippet = desc[:140] + "…" if len(desc) > 140 else desc
+
+        headline = f"{clean_title} — {snippet}"
+        return headline or "News unavailable"
 
     except Exception as e:
-        print("Feed error:", e)
-        return "News fetch failed."
+        print("API error:", e)
+        return "API fetch failed"
 
 
 
