@@ -45,35 +45,58 @@ def get_article_snippet(url):
         print("Snippet fetch error:", e)
         return ""
 
-
 def get_clean_headline():
-    """Fetch a real ANI headline + snippet with better reliability."""
+    """Fetch a real ANI headline + snippet (no more feed empty issues)."""
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (X-Autobot)"}
-        feed = feedparser.parse(ANI_RSS_URL)
-        if not feed.entries:
-            # Fallback to direct HTML scrape if feed empty
-            r = requests.get("https://www.aninews.in/", headers=headers, timeout=10)
-            soup = BeautifulSoup(r.text, "html.parser")
-            h2 = soup.find("h2")
-            if h2:
-                headline = h2.get_text().strip()
-                return headline
-            return "No new updates — feed empty."
+        headers = {
+            "User-Agent": "Mozilla/5.0 (compatible; X-AutoBot/1.0; +https://github.com/Aditya-15Singh/x-autobot)"
+        }
 
-        # Pick from top 5
-        entry = random.choice(feed.entries[:5])
-        raw = entry.title.strip()
+        # 1️⃣ Fetch the raw feed manually
+        resp = requests.get(ANI_RSS_URL, headers=headers, timeout=12)
+        if resp.status_code != 200 or "<item>" not in resp.text:
+            print("RSS fetch failed, trying HTML scrape")
+            return scrape_ani_homepage()
+
+        # 2️⃣ Parse XML safely
+        feed = feedparser.parse(resp.text)
+        if not feed.entries:
+            print("FeedParser gave no entries, using HTML fallback")
+            return scrape_ani_homepage()
+
+        # 3️⃣ Pick one fresh item
+        entry = random.choice(feed.entries[:6])
+        raw_title = entry.title.strip()
         snippet = get_article_snippet(entry.link)
 
-        # Clean and merge
-        clean = re.sub(r"http\S+|www\S+|#\S+|@\S+|ANI|–|—", "", raw)
-        headline = f"{clean} — {snippet}" if snippet else clean
+        clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+|ANI|–|—", "", raw_title)
+        headline = f"{clean_title} — {snippet}" if snippet else clean_title
 
-        return headline or "News unavailable."
+        return headline or scrape_ani_homepage()
+
     except Exception as e:
         print("Feed error:", e)
-        return "Feed access failed — checking again later."
+        return scrape_ani_homepage()
+
+
+def scrape_ani_homepage():
+    """Fallback: scrape ANI homepage directly when RSS fails."""
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get("https://www.aninews.in/", headers=headers, timeout=10)
+        if r.status_code != 200:
+            return "Unable to fetch news from ANI."
+
+        soup = BeautifulSoup(r.text, "html.parser")
+        latest = soup.find("h2")
+        if latest:
+            title = latest.get_text().strip()
+            return title
+        return "Could not scrape latest headline."
+    except Exception as e:
+        print("HTML scrape error:", e)
+        return "Unable to fetch news."
+
 
 
 # --- headline fetch and cleanup ------------------------------------------------
