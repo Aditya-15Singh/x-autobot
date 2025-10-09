@@ -1,51 +1,26 @@
-# tweet.py  –  ANI-based headline + aggressive reaction generator
-import os, re, random, sys
-import feedparser, tweepy
-import datetime
-import random
+# tweet.py – India-focused News + Reaction Autobot (v1.1 posting)
+
+import os, re, random, sys, datetime, requests, feedparser, tweepy
+from bs4 import BeautifulSoup
 
 
+# ------------- CONFIG -------------
 ANI_RSS_URL = "https://aniportalimages.blob.core.windows.net/mediafeed/news-feed.xml"
 
-def get_tweepy_client():
-    try:
-        return tweepy.Client(
-            consumer_key=os.getenv("X_API_KEY"),
-            consumer_secret=os.getenv("X_API_SECRET"),
-            access_token=os.getenv("X_ACCESS_TOKEN"),
-            access_token_secret=os.getenv("X_ACCESS_SECRET")
-        )
-    except Exception as e:
-        print("Auth error:", e)
-        return None
+
+# ------------- TWITTER AUTH (v1.1) -------------
+def get_v1_client():
+    """Create a Tweepy v1.1 client with OAuth1 (works on free/essential plans)."""
+    auth = tweepy.OAuth1UserHandler(
+        os.getenv("X_API_KEY"),
+        os.getenv("X_API_SECRET"),
+        os.getenv("X_ACCESS_TOKEN"),
+        os.getenv("X_ACCESS_SECRET")
+    )
+    return tweepy.API(auth)
 
 
-import requests
-from bs4 import BeautifulSoup
-import datetime
-import random
-import re
-
-def get_article_snippet(url):
-    """Try to pull the first meaningful paragraph from the ANI article."""
-    try:
-        r = requests.get(url, timeout=6)
-        if r.status_code != 200:
-            return ""
-        soup = BeautifulSoup(r.text, "html.parser")
-
-        # Find a paragraph with real content, skip ads or 'Also Read' lines
-        for p in soup.find_all("p"):
-            text = p.get_text().strip()
-            if len(text) > 60 and not text.lower().startswith(("also read", "follow", "read:")):
-                text = re.sub(r"\s+", " ", text)
-                return text[:160] + "…" if len(text) > 160 else text
-        return ""
-    except Exception as e:
-        print("Snippet fetch error:", e)
-        return ""
-
-
+# ------------- NEWS FETCH (NewsData.io) -------------
 def get_clean_headline():
     """Fetch Indian political, cricket, or movie headlines via NewsData API."""
     try:
@@ -53,7 +28,6 @@ def get_clean_headline():
         if not api_key:
             return "Missing NewsData API key"
 
-        # Focus on Indian, political, sports, and entertainment categories
         url = (
             f"https://newsdata.io/api/1/news?"
             f"apikey={api_key}"
@@ -61,14 +35,13 @@ def get_clean_headline():
             f"&language=en"
             f"&category=top,politics,sports,entertainment"
         )
-
         r = requests.get(url, timeout=10)
         data = r.json()
 
         if not data.get("results"):
             return "No latest Indian news available"
 
-        # Choose from the first few fresh headlines
+        # choose a random recent article
         article = random.choice(data["results"][:8])
         title = article.get("title", "").strip()
         desc = article.get("description", "").strip()
@@ -76,10 +49,7 @@ def get_clean_headline():
 
         clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", title)
         snippet = desc[:140] + "…" if len(desc) > 140 else desc
-
-        # Build readable headline with source attribution
         headline = f"{clean_title} — {snippet} (via {source.title()})"
-
         return headline or "India se kuch nayi baatein aayi hain"
 
     except Exception as e:
@@ -87,33 +57,7 @@ def get_clean_headline():
         return "News fetch failed"
 
 
-
-
-def scrape_ani_homepage():
-    """Fallback: scrape ANI homepage directly when RSS fails."""
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        r = requests.get("https://www.aninews.in/", headers=headers, timeout=10)
-        if r.status_code != 200:
-            return "Unable to fetch news from ANI."
-
-        soup = BeautifulSoup(r.text, "html.parser")
-        latest = soup.find("h2")
-        if latest:
-            title = latest.get_text().strip()
-            return title
-        return "Could not scrape latest headline."
-    except Exception as e:
-        print("HTML scrape error:", e)
-        return "Unable to fetch news."
-
-
-
-# --- headline fetch and cleanup ------------------------------------------------
-
-
-
-# --- reaction bank -------------------------------------------------------------
+# ------------- REACTIONS -------------
 REACTIONS = {
     "pakistan": [
         "Pakistan phir se peace ki baat kar raha hai — bhai border pe firing aur mic pe preaching dono ek saath nahi chalte.",
@@ -135,23 +79,16 @@ REACTIONS = {
         "Rohit Sharma ka form dekh ke lagta hai aggression aur calm dono ek hi insaan mein fit ho gaye hain.",
         "Virat Kohli jab pitch pe aata hai tab crowd ka noise nahi, energy level badh jata hai.",
         "Team India ka intent clear hai — respect sabko, darr kisi se nahi.",
-        "BCCI se zyada Twitter experts batting order decide karte hain, par runs score karta hai Rohit hi.",
         "Kohli ke cover drive ko dekhke lagta hai physics optional subject hai.",
-        "Har baar jab India harata hai, critics jaag jaate hain; jab jeetta hai toh mute pe chale jaate hain.",
-        "World Cup ka stress sirf fans ko nahi, bowlers ko nightmare deta hai jab Rohit set hota hai.",
-        "Team India ke dressing room mein silence bhi motivation hota hai.",
-        "Rohit aur Virat ke beech rivalry nahi, hunger hai — aur wahi difference bana deta hai Team India ko unique.",
-        "Kuch log kehte hain age ho gayi, par performance numbers dekhke lagta hai calendar hi outdated hai.",
-        "Opposition bowlers ke liye nightmare word ka synonym hai 'Kohli on song'.",
-        "Cricket sirf game nahi, Bharat ke liye festival hai — aur Rohit-Virat uske brand ambassadors.",
-        "Har match se pehle trolls ke predictions aate hain, match ke baad unke accounts silent ho jaate hain.",
-        "Rohit ka pull shot aur Kohli ka chase — dono Bharat ke mood swings define karte hain.",
-        "Team India ka aggression 'sledging' nahi, professionalism ka upgraded version hai.",
         "Fans ko sirf win nahi chahiye, domination chahiye — aur yeh squad deliver kar raha hai.",
         "Commentators keh rahe the old era khatam — bhai Rohit-Virat ne prove kar diya, form temporary hai class permanent.",
-        "Jab Kohli century banata hai, trolls data delete karne lagte hain.",
-        "Cricket ground pe noise kam aur impact zyada — that’s Rohit-Virat culture.",
         "Ye team khamoshi se kaam karti hai aur headlines apne aap likha leti hai."
+    ],
+    "movies": [
+        "Box office pe numbers badhe ya na badhe, desi audience ka craze kabhi kam nahi hota.",
+        "Bollywood fir se experimental mood me — par audience ab content-driven hai boss.",
+        "South cinema ka impact real hai, ab Bollywood ko bhi realism seekhna hoga.",
+        "Star power achha hai, par ab story hi king hai — audience ne clear message de diya hai."
     ],
     "generic": [
         "Headline mil gayi, logic gayab. Yeh news industry ka naya syllabus hai.",
@@ -162,43 +99,40 @@ REACTIONS = {
 }
 
 
-
-# --- simple topic matcher ------------------------------------------------------
+# ------------- TOPIC MATCHER -------------
 def choose_reaction(headline: str) -> str:
     lower = headline.lower()
-
-    # --- Cricket detection first ---
-    if any(w in lower for w in ["cricket", "bcci", "rohit", "kohli", "india vs", "world cup", "odi", "t20"]):
+    if any(w in lower for w in ["cricket", "bcci", "rohit", "kohli", "world cup", "odi", "t20"]):
         return random.choice(REACTIONS["cricket"])
-
-    # --- Country / politics / media topics ---
     if "pakistan" in lower:
         return random.choice(REACTIONS["pakistan"])
     if "rahul" in lower or "gandhi" in lower:
         return random.choice(REACTIONS["rahul"])
-    if "supreme court" in lower or "sc " in lower:
+    if "supreme court" in lower:
         return random.choice(REACTIONS["supreme"])
     if "bbc" in lower or "media" in lower or "press" in lower:
         return random.choice(REACTIONS["media"])
-
-    # --- Default fallback ---
+    if any(w in lower for w in ["movie", "film", "box office", "bollywood", "cinema", "collection"]):
+        return random.choice(REACTIONS["movies"])
     return random.choice(REACTIONS["generic"])
 
+
+# ------------- HASHTAGS -------------
 HASHTAGS = {
     "cricket": ["#TeamIndia", "#Cricket", "#RohitSharma", "#ViratKohli"],
     "pakistan": ["#IndiaFirst", "#NationalSecurity"],
     "rahul": ["#Politics", "#Bharat"],
     "supreme": ["#Judiciary", "#IndiaNews"],
     "media": ["#FakeNarrative", "#IndianMedia"],
+    "movies": ["#Bollywood", "#BoxOffice", "#IndianCinema"],
     "generic": ["#India", "#Bharat"]
 }
 
 
-# --- build tweet ---------------------------------------------------------------
+# ------------- BUILD TWEET -------------
 def build_tweet():
     headline = get_clean_headline()
     reaction = choose_reaction(headline)
-
 
     key = "generic"
     lower = headline.lower()
@@ -212,6 +146,8 @@ def build_tweet():
         key = "supreme"
     elif "media" in lower or "bbc" in lower:
         key = "media"
+    elif any(w in lower for w in ["movie", "film", "box office", "bollywood", "cinema", "collection"]):
+        key = "movies"
 
     tags = " ".join(random.sample(HASHTAGS[key], k=min(2, len(HASHTAGS[key]))))
     tweet = f"{headline} — {reaction} {tags}"
@@ -220,27 +156,19 @@ def build_tweet():
     return tweet
 
 
-
-# --- post tweet ----------------------------------------------------------------
-
-import tweepy
-
-def get_v1_client():
-    auth = tweepy.OAuth1UserHandler(
-        os.getenv("X_API_KEY"),
-        os.getenv("X_API_SECRET"),
-        os.getenv("X_ACCESS_TOKEN"),
-        os.getenv("X_ACCESS_SECRET")
-    )
-    return tweepy.API(auth)
-
+# ------------- POST TWEET (v1.1) -------------
 def post_tweet():
+    api = get_v1_client()
     text = build_tweet()
     print("Posting:", text)
     try:
-        api = get_v1_client()
         api.update_status(text)
         print("✅ Tweet posted (v1.1 endpoint).")
     except Exception as e:
         print("Tweet failed:", e)
         sys.exit(1)
+
+
+# ------------- MAIN -------------
+if __name__ == "__main__":
+    post_tweet()
