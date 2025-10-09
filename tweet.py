@@ -222,19 +222,25 @@ def build_tweet():
 
 
 # --- post tweet ----------------------------------------------------------------
+
+import tweepy
+
+def get_v1_client():
+    auth = tweepy.OAuth1UserHandler(
+        os.getenv("X_API_KEY"),
+        os.getenv("X_API_SECRET"),
+        os.getenv("X_ACCESS_TOKEN"),
+        os.getenv("X_ACCESS_SECRET")
+    )
+    return tweepy.API(auth)
+
 def post_tweet():
-    client = get_tweepy_client()
-    if not client:
-        sys.exit("No Tweepy client; check keys.")
     text = build_tweet()
     print("Posting:", text)
     try:
-        client.create_tweet(text=text)
-        print("✅ Tweet posted successfully.")
+        api = get_v1_client()
+        api.update_status(text)
+        print("✅ Tweet posted (v1.1 endpoint).")
     except Exception as e:
         print("Tweet failed:", e)
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    post_tweet()
