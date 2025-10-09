@@ -15,33 +15,56 @@ def get_tweepy_client():
         return None
 
 
-# --- Fetch Indian headlines via NewsData.io ---
+ # --- Fetch Indian headlines via NewsData.io ---
 def get_clean_headline():
+    """Get a current Indian headline with context (NewsData first, ANI fallback)."""
     try:
-        api_key = os.getenv("NEWSDATA_KEY")
-        if not api_key:
+        key = os.getenv("NEWSDATA_KEY")
+        if not key:
+            print("❌ Missing NewsData key")
             return "Missing NewsData API key"
 
         url = (
             f"https://newsdata.io/api/1/news?"
-            f"apikey={api_key}&country=in&language=en&category=top,politics,sports,entertainment"
+            f"apikey={key}&country=in&language=en&category=top,politics,sports,entertainment,business"
         )
-        r = requests.get(url, timeout=10)
-        data = r.json()
+
+        import requests
+        res = requests.get(url, timeout=8)
+        if res.status_code != 200:
+            print("NewsData fetch failed:", res.status_code)
+            raise Exception("NewsData fetch error")
+
+        data = res.json()
         if not data.get("results"):
-            return "No latest Indian news available"
+            print("⚠️ No NewsData results, falling back to ANI")
+            raise Exception("empty results")
 
-        article = random.choice(data["results"][:8])
+        # pick a random article that’s not duplicate and has content
+        articles = [a for a in data["results"] if a.get("title") and "india" in str(a.get("country", [])).lower()]
+        if not articles:
+            articles = data["results"]
+
+        article = random.choice(articles[:8])
         title = article.get("title", "").strip()
-        desc = article.get("description", "").strip()
-        source = article.get("source_id", "NewsData")
+        source = article.get("source_name", "NewsData")
+        snippet = article.get("description") or article.get("content") or ""
+        snippet = re.sub(r"\s+", " ", snippet).strip()
 
+        # Clean up
         clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", title)
-        snippet = desc[:140] + "…" if len(desc) > 140 else desc
-        return f"{clean_title} — {snippet} (via {source.title()})"
+        headline = f"{clean_title} — {snippet[:100]} (via {source})"
+        return headline
+
     except Exception as e:
-        print("API error:", e)
-        return "News fetch failed"
+        print("🟠 Falling back to ANI:", e)
+        try:
+            import feedparser
+            feed = feedparser.parse("https://aniportalimages.blob.core.windows.net/mediafeed/news-feed.xml")
+            entry = random.choice(feed.entries[:5])
+            return entry.title
+        except Exception:
+            return "Bharat aur duniya se kuch nayi baatein aa rahi hain"
 
 
 # --- Reactions ---
