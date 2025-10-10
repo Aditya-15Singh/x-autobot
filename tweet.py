@@ -122,6 +122,8 @@ HASHTAGS = {
 
 # --- Build tweet ---
 def build_tweet():
+    max_length = 280
+
     headline = get_clean_headline()
     reaction = choose_reaction(headline)
 
@@ -133,14 +135,39 @@ def build_tweet():
         key = "pakistan"
     elif "rahul" in lower or "gandhi" in lower:
         key = "rahul"
-    elif "bbc" in lower or "media" in lower:
+    elif "supreme court" in lower or "sc " in lower:
+        key = "supreme"
+    elif "media" in lower or "bbc" in lower:
         key = "media"
-    elif any(w in lower for w in ["movie", "film", "box office", "bollywood", "cinema", "collection"]):
-        key = "movies"
 
-    tags = " ".join(random.sample(HASHTAGS[key], k=min(2, len(HASHTAGS[key]))))
-    tweet = f"{headline} — {reaction} {tags}"
-    return tweet[:277] + "..." if len(tweet) > 280 else tweet
+    tags_list = HASHTAGS.get(key, HASHTAGS["generic"])
+    tags = " ".join(random.sample(tags_list, k=min(2, len(tags_list))))
+
+    base_text = f"{headline} — {reaction}"
+    full_tweet = f"{base_text} {tags}".strip()
+
+    if len(full_tweet) > max_length:
+        # Try trimming the headline first
+        excess = len(full_tweet) - max_length
+        if len(headline) > excess + 10:  # leave at least 10 chars
+            headline = headline[:len(headline) - excess - 3] + "..."
+            base_text = f"{headline} — {reaction}"
+            full_tweet = f"{base_text} {tags}".strip()
+
+        # If still too long, trim reaction
+        if len(full_tweet) > max_length:
+            extra = len(full_tweet) - max_length
+            if len(reaction) > extra + 10:
+                reaction = reaction[:len(reaction) - extra - 3] + "..."
+                base_text = f"{headline} — {reaction}"
+                full_tweet = f"{base_text} {tags}".strip()
+
+        # Final safety cut
+        if len(full_tweet) > max_length:
+            full_tweet = full_tweet[:max_length-3] + "..."
+
+    return full_tweet
+
 
 
 # --- Post tweet (v2) ---
