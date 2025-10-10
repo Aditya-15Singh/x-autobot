@@ -53,8 +53,9 @@ def get_clean_headline():
 
         # Clean up
         clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", title)
-        headline = f"{clean_title} — {snippet[:100]} (via {source})"
+       headline = f"{clean_title} — {snippet[:100]}"
         return headline
+
 
     except Exception as e:
         print("🟠 Falling back to ANI:", e)
