@@ -15,7 +15,6 @@ def get_tweepy_client():
         return None
 
 
- # --- Fetch Indian headlines via NewsData.io ---
 def get_clean_headline():
     """Get a current Indian headline with context (NewsData first, ANI fallback)."""
     try:
@@ -40,22 +39,22 @@ def get_clean_headline():
             print("⚠️ No NewsData results, falling back to ANI")
             raise Exception("empty results")
 
-        # pick a random article that’s not duplicate and has content
-        articles = [a for a in data["results"] if a.get("title") and "india" in str(a.get("country", [])).lower()]
+        articles = [
+            a for a in data["results"]
+            if a.get("title") and "india" in str(a.get("country", [])).lower()
+        ]
         if not articles:
             articles = data["results"]
 
         article = random.choice(articles[:8])
         title = article.get("title", "").strip()
-        source = article.get("source_name", "NewsData")
         snippet = article.get("description") or article.get("content") or ""
         snippet = re.sub(r"\s+", " ", snippet).strip()
 
-        # Clean up
-        clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", title)
-       headline = f"{clean_title} — {snippet[:100]}"
-        return headline
+        clean_title = re.sub(r"http\S+|www\S+|#\S+|@\S+", "", title).strip()
+        headline = f"{clean_title} — {snippet[:100]}" if snippet else clean_title
 
+        return headline
 
     except Exception as e:
         print("🟠 Falling back to ANI:", e)
@@ -63,7 +62,7 @@ def get_clean_headline():
             import feedparser
             feed = feedparser.parse("https://aniportalimages.blob.core.windows.net/mediafeed/news-feed.xml")
             entry = random.choice(feed.entries[:5])
-            return entry.title
+            return entry.title.strip()
         except Exception:
             return "Bharat aur duniya se kuch nayi baatein aa rahi hain"
 
